@@ -26,6 +26,10 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // Endpoint /
+app.get('/', (req, res, next) => {
+    res.send('<h2>Welcome to API-Translatov</h2>');
+});
+
 app.post('/', upload.single('audio'), async (req, res) => {
    // Get URI Audi |  From & To Languages
   const { path: uri } = req.file;
@@ -48,27 +52,27 @@ app.post('/', upload.single('audio'), async (req, res) => {
         sampleRateHertz: 41000,
         languageCode: languages.from,
       };
-    
+
       // Get Buffer from audio file
       const savedFile = fs.readFileSync(`${uri}_encoded`)
       if (!savedFile) {
         reject('file can not be read')
       }
-    
+
       const audioBytes = savedFile.toString('base64');
       const audio = {
         content: audioBytes,
       };
-    
+
       const transcription = await _speechToText({ audio, config });
       console.log('transcription', transcription);
       const translation = await _translate(transcription, languages.to);
       console.log('translation', translation);
-    
+
       res.json({
         from: {
           lang: languages.from,
-          text: transcription 
+          text: transcription
         },
         to: {
           lang: languages.to,
