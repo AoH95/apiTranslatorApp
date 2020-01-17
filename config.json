@@ -1,0 +1,6 @@
+{
+  "googleCredential": {
+    "projectId": "prime-buffer-265308",
+    "keyFilename": "./service-account-file.json"
+  }
+}
