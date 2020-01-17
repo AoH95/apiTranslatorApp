@@ -5,13 +5,17 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const ffmpeg = require('fluent-ffmpeg');
 const speech = require('@google-cloud/speech');
 const { Translate } = require('@google-cloud/translate').v2;
 const { googleCredential } = require('./config.json');
+
 // All instances needed
 const app = express();
 const port = 3000;
-const upload = multer();
+const upload = multer({dest:'tmp/uploads/'});
+ffmpeg.setFfmpegPath(ffmpegPath);
 const clientSpeech = new speech.SpeechClient(googleCredential);
 const clientTranslate = new Translate(googleCredential);
 
@@ -23,35 +27,55 @@ app.use(bodyParser.json());
 
 // Endpoint /
 app.post('/', upload.single('audio'), async (req, res) => {
-  // Get From & To Languages
+   // Get URI Audi |  From & To Languages
+  const { path: uri } = req.file;
   const languages = req.body;
 
-  // Config for Speech-to-text Api
-  const config = {
-    encoding: 'LINEAR16',
-    sampleRateHertz: 41000,
-    languageCode: languages.from,
-  };
-
-  // Get Buffer from audio file
-  const audioBytes = req.file.buffer.toString('base64');
-  const audio = {
-    content: audioBytes,
-  };
-
-  const transcription = await _speechToText({ audio, config });
-  const translation = await _translate(transcription, languages.to);
-  
-  res.json({
-    from: {
-      lang: languages.from,
-      text: transcription 
-    },
-    to: {
-      lang: languages.to,
-      text: translation
-    },
-  });
+  ffmpeg()
+    .input(uri)
+    .outputOptions([
+        '-f s16le',
+        '-acodec pcm_s16le',
+        '-vn',
+        '-ac 1',
+        '-ar 41k',
+        '-map_metadata -1'
+    ])
+    .save(`${uri}_encoded`)
+    .on('end', async () => {
+      const config = {
+        encoding: 'LINEAR16',
+        sampleRateHertz: 41000,
+        languageCode: languages.from,
+      };
+    
+      // Get Buffer from audio file
+      const savedFile = fs.readFileSync(`${uri}_encoded`)
+      if (!savedFile) {
+        reject('file can not be read')
+      }
+    
+      const audioBytes = savedFile.toString('base64');
+      const audio = {
+        content: audioBytes,
+      };
+    
+      const transcription = await _speechToText({ audio, config });
+      console.log('transcription', transcription);
+      const translation = await _translate(transcription, languages.to);
+      console.log('translation', translation);
+    
+      res.json({
+        from: {
+          lang: languages.from,
+          text: transcription 
+        },
+        to: {
+          lang: languages.to,
+          text: translation
+        },
+      });
+    });
 });
 
 const _speechToText = async option => {
