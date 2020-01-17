@@ -100,4 +100,6 @@ const _translate = async (text, target) => {
   return translations[0];
 };
 
-app.listen(port, () => console.log(`Hello world app listening on port ${port}!`))
+
+let port_number = app.listen(process.env.PORT || 3000, () => console.log(`Hello world app listening on port ${port}!`));
+app.listen(port_number);
